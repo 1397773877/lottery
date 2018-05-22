@@ -39,6 +39,7 @@
 										<th class="center">中奖号</th>
 										<th class="center">中奖内容</th>
 										<th class="center">中奖金额</th>
+										<th class="center">账户余额</th>
 										<th class="center">状态</th>
 										<th class="center">投注轮次</th>
 		                            </tr>
@@ -58,6 +59,7 @@
 													<td class="center">${bet.winNo}</td>
 													<td class="center">${bet.winContent}</td>
 													<td class="center">${bet.winAmt}</td>
+													<td class="center">${bet.balance}</td>
 													<c:if test="${bet.status == '已中奖'}">
 													<td class="center" style="color:blue;">${bet.status}</td>
 													</c:if>
