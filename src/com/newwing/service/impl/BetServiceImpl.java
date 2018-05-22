@@ -152,7 +152,6 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 
 	public void bet(HttpServletRequest request, WebDriver driver) throws Exception {
 		logger.info(">>>>>>>>>>>>>>>>>>>> 自动投注开始 <<<<<<<<<<<<<<<<<<<<");
-		
 		boolean flag = true;
 		// 平台、彩种
 		String platform = request.getParameter("platform");
@@ -182,31 +181,39 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 		Thread.sleep(2000);
 		
 		// 选择前一
-		WebElement qy = driver.findElement(By.id("tznavhd")).findElements(By.tagName("a")).get(2);
-		qy.click();
-		Thread.sleep(1000);
+//		WebElement qy = driver.findElement(By.id("tznavhd")).findElements(By.tagName("a")).get(2);
+//		qy.click();
+//		Thread.sleep(1000);
 		
 		// 当前余额
 		WebElement header_user_money = driver.findElement(By.id("header_user_money"));
 		String amtStr = header_user_money.getText();
-		
+		int sort = 0;
+		int lastMultiple = 0;
+		double lastBetAmt = 0;
 		while (flag) {
 			try {
 				long startTime = new Date().getTime();
-				
 				// 自动止盈
-//				lotteryBO = (LotteryBO)this.lotteryService.get(LotteryBO.class, 1);
-//				double balance = amtToday - lotteryBO.getAmtYestoday();
+//				WebElement header_show_money = driver.findElement(By.id("header_show_money"));// 当前余额
+//				header_show_money.click();
+//				WebElement header_user_money = driver.findElement(By.id("header_user_money"));// 当前余额
+//				double amtToday = new Double(header_user_money.getText());
+//				LotteryBO lotteryBO = (LotteryBO)this.lotteryService.get(LotteryBO.class, 1);
+//				double balance = amtToday - lotteryBO.getAmtYestoday();// 当日盈利
 //				if (balance >= CommonConstant.DEFAULT_BETAMT * CommonConstant.DEFAULT_WIN_STOP_MULTIPLE) {
 //					lotteryBO.setAmtYestoday(amtToday);
 //					this.lotteryService.update(lotteryBO);
 //					request.getSession().setAttribute("status", "停止");
 //				}
-				
 //				String status = (String)request.getSession().getAttribute("status");
-//				if (!"start".equals(status)) {
+//				if (!"开始".equals(status)) {
 //					flag = false;
+//					break;
 //				}
+//				String url = "http://190376.com/lotteryV3/lotDetail.do?lotCode=FKSC";// 疯狂赛车
+//				driver.get(url);
+//				Thread.sleep(4000);
 				
 				if ("*****".equals(amtStr)) {
 					// 当前余额
@@ -226,7 +233,8 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 				showgd_box.click();
 				Thread.sleep(1000);
 				
-				WebElement last_qihao = driver.findElement(By.id("last_qihao"));// 上期期号 
+				// 上期期号
+				WebElement last_qihao = driver.findElement(By.id("last_qihao")); 
 				String lastBatchNo = last_qihao.getText();
 				
 				// 判断上一期是否在开奖中
@@ -253,11 +261,10 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 				// 上期中奖内容、中奖金额、投注倍数、投注金额 
 				String lastWinContent = "";
 				double lastWinAmt = 0;
-				int lastMultiple = 0;
-				double lastBetAmt = 0;
 				
-				int sort = 0;
 				String lastStatus = "未中奖";
+				double amt = 0.00;
+				double balance = amtToday;
 				DecimalFormat df = new DecimalFormat(".00");
 				List<BetBO> betList = this.betService.find("FROM BetBO where batchNo = '" + lastBatchNo + "'");
 				if (betList != null && betList.size() > 0) {
@@ -268,17 +275,21 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 					if (lastWinContent.equals(lastBetBO.getBetContent())) {
 						lastWinAmt = lastBetBO.getBetAmt() * 1.98;
 						lastStatus = "已中奖";
-						System.out.println("第" + lastBatchNo + "期 已中奖，盈利金额："+ (Double.valueOf(df.format(lastWinAmt))-lastBetBO.getBetAmt()));
+						amt = (Double.valueOf(df.format(lastWinAmt))-lastBetBO.getBetAmt());
+						balance = lastBetBO.getBalance() + lastWinAmt;
+						System.out.println("第" + lastBatchNo + "期 已中奖，盈利金额："+ amt);
 					} else {
 						lastWinAmt = 0;
 						lastStatus = "未中奖";
-						System.out.println("第" + lastBatchNo + "期 未中奖，亏损金额："+ lastBetBO.getBetAmt());
+						amt = lastWinAmt - lastBetBO.getBetAmt();
+						balance = lastBetBO.getBalance();
+						System.out.println("第" + lastBatchNo + "期 未中奖，亏损金额："+ amt);
 					}
-					
-					lastBetBO.setStatus(lastStatus);
-					lastBetBO.setWinAmt(lastWinAmt);
 					lastBetBO.setWinContent(lastWinContent);
 					lastBetBO.setWinNo(winNo);
+					lastBetBO.setWinAmt(lastWinAmt);
+					lastBetBO.setBalance(balance);
+					lastBetBO.setStatus(lastStatus);
 					lastBetAmt = lastBetBO.getBetAmt();
 					lastMultiple = lastBetBO.getMultiple();
 					sort = lastBetBO.getSort();
@@ -296,6 +307,7 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 					lastWinContent = this.getOddOrEvenResult(winNo);
 					lastBetBO.setWinContent(lastWinContent);
 					lastBetBO.setWinAmt(0.00);
+					lastBetBO.setBalance(balance);
 					lastBetBO.setStatus("/");
 					lastBetBO.setSort(0);
 					this.betService.save(lastBetBO);
@@ -310,7 +322,7 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 				map.put("lastWinContent", lastWinContent);
 				map.put("lastStatus", lastStatus);
 				map.put("lotCode", lotCode);
-				map.put("balance", amtToday);
+				map.put("balance", balance);
 				map.put("sort", sort);
 				map.put("isContinuous", isContinuous);
 				map.put("isChange", isChange);
@@ -329,7 +341,6 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 				} else {
 					System.out.println("第" + batchNo + "期 不满足投注条件，继续等待");
 				}
-				
 				long endTime = new Date().getTime();
 				logger.info(">>>>>>>>>>>>>>>>>>>> 自动投注结束 <<<<<<<<<<<<<<<<<<<<" );
 				Thread.sleep(betTime*1000 - (endTime - startTime));
@@ -370,8 +381,8 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 		betContent = this.selectNums(changeFlag, isChange, isContinuous, lastWinContent, driver);
 		
 		// 未中奖，翻倍投注
-		if ("未中奖".equals(lastStatus)) {
-			if (lastBetAmt == 0) {
+		if ("未中奖".equals(lastStatus) || "/".equals(lastStatus)) {
+			if (lastBetAmt == 0 && sort == 0) {
 				multiple = Integer.valueOf(map.get("defaultMultiple").toString());
 				betAmt = Double.valueOf(map.get("defaultBetamt").toString());
 			} else {
@@ -406,36 +417,22 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 			// 添加选号
 			this.addNums(driver);
 		}
-		
-		WebElement tz_box_but = driver.findElement(By.className("tz_box_but"));
-		WebElement add_to_list_zs_standard = tz_box_but.findElement(By.id("add_to_list_zs_standard"));
-		Thread.sleep(1000);
-		add_to_list_zs_standard.click();
-		Thread.sleep(1000);
+//		else {
+//			this.selectNums(changeFlag, isChange, isContinuous, lastWinContent, driver);
+//			this.addNums(driver);
+//		}
 		
 		// 投注：判断选号区有投注内容，则投注
-		WebElement betting_box_left = driver.findElement(By.className("betting-box-left"));
-		String bettingContent = betting_box_left.getText();
-		int contentLength = bettingContent.length();
-		System.out.println("第" + batchNo + "期 投注内容："+bettingContent);
+		String selectContent = this.getSelectContent(batchNo, driver);
 		// 添加选号成功
-		if (!"".equals(bettingContent)) {
+		if (!"".equals(selectContent)) {
 			// 投注下单
 			this.betBill(driver);
-			// 立即投注
-			WebElement lot_submit = driver.findElement(By.className("lot_submit"));
-			WebElement submit_lottery = lot_submit.findElement(By.id("submit_lottery"));
-			submit_lottery.click();
-			
-			Thread.sleep(2000);
-			
-			// 确认投注
-			WebElement confirmButton = driver.findElement(By.className("layui-layer-btn0"));
-			confirmButton.click();// 最终投注
-		} else {// 添加选号失败，重新添加选号
-			this.addNums(driver);
-			this.betBill(driver);
 		}
+//		else {// 添加选号失败，重新添加选号
+//			this.addNums(driver);
+//			this.betBill(driver);
+//		}
 		
 		// 新增本期的数据
 		BetBO betBO = new BetBO();
@@ -449,11 +446,25 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 		betBO.setWinNo("");
 		betBO.setWinContent("");
 		betBO.setWinAmt(0.00);
-		betBO.setBalance(balance);
+		betBO.setBalance(balance-betAmt);
 		betBO.setStatus("未开奖");
 		betBO.setSort(sort);
 		this.betService.save(betBO);
 		System.out.println("第" + batchNo + "期 成功投注倍数：" + multiple + "，投注金额：" + betAmt);
+	}
+
+	/**
+	 * 获取添加选号的内容
+	 * @param batchNo
+	 * @param driver
+	 * @return
+	 */
+	private String getSelectContent(String batchNo, WebDriver driver) {
+		WebElement multiple_select = driver.findElement(By.id("multiple_select"));
+		String bettingContent = multiple_select.getText();
+		int contentLen = bettingContent.length();
+		System.out.println("第" + batchNo + "期 投注内容："+bettingContent.substring(0, contentLen-3));
+		return bettingContent;
 	}
 
 	/**
@@ -462,7 +473,10 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 	 * @throws InterruptedException
 	 */
 	private void addNums(WebDriver driver) throws InterruptedException {
+		WebElement tz_box_but = driver.findElement(By.className("tz_box_but"));
+		tz_box_but.click();
 		WebElement add_to_list_zs_standard = driver.findElement(By.id("add_to_list_zs_standard"));
+		Thread.sleep(1000);
 		add_to_list_zs_standard.click();
 		Thread.sleep(1000);
 	}
@@ -474,11 +488,9 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 	 */
 	private void betBill(WebDriver driver) throws InterruptedException {
 		// 立即投注
-		WebElement lot_submit = driver.findElement(By.className("lot_submit"));
-		WebElement submit_lottery = lot_submit.findElement(By.id("submit_lottery"));
+		WebElement submit_lottery = driver.findElement(By.id("submit_lottery"));
 		submit_lottery.click();
-		
-		Thread.sleep(2000);
+		Thread.sleep(3000);
 		
 		// 确认投注
 		WebElement confirmButton = driver.findElement(By.className("layui-layer-btn0"));
@@ -624,11 +636,11 @@ public class BetServiceImpl extends BaseServiceImpl implements IBetService {
 			}
 		}
 		
-		System.out.println("第" + batchNo5 + "期 中奖号码：" + winNo5 + "，为 " + winNo5Result);
-		System.out.println("第" + batchNo4 + "期 中奖号码：" + winNo4 + "，为 " + winNo4Result);
-		System.out.println("第" + batchNo3 + "期 中奖号码：" + winNo3 + "，为 " + winNo3Result);
-		System.out.println("第" + batchNo2 + "期 中奖号码：" + winNo2 + "，为 " + winNo2Result);
-		System.out.println("第" + batchNo1 + "期 中奖号码：" + winNo1 + "，为 " + winNo1Result);
+		System.out.println("第" + batchNo5 + "期 开奖号码：" + winNo5 + "，为 " + winNo5Result);
+		System.out.println("第" + batchNo4 + "期 开奖号码：" + winNo4 + "，为 " + winNo4Result);
+		System.out.println("第" + batchNo3 + "期 开奖号码：" + winNo3 + "，为 " + winNo3Result);
+		System.out.println("第" + batchNo2 + "期 开奖号码：" + winNo2 + "，为 " + winNo2Result);
+		System.out.println("第" + batchNo1 + "期 开奖号码：" + winNo1 + "，为 " + winNo1Result);
 		
 		return resultFlag;
 	}
