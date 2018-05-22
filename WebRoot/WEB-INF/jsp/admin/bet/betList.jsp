@@ -2,7 +2,7 @@
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt"%>
 <%
-	response.setHeader("refresh","10");// 5秒刷新
+	response.setHeader("refresh","5");// 5秒刷新
 %>
 <!DOCTYPE html>
 <html lang="en" >
